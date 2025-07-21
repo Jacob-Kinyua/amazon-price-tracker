@@ -1,0 +1,28 @@
+name: Price Tracker bot
+
+on:
+  schedule:
+    - cron: '0 4 * * *'  # Runs at 7am EAT (UTC+3 = 4am UTC)
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4 dotenv
+
+      - name: Run the bot
+        run: python3 pricer.py
+        env:
+          MY_EMAIL: ${{ secrets.MY_EMAIL }}
+          MY_PASSWORD: ${{ secrets.MY_PASSWORD }}
+          AMZN_ID: ${{ secrets.AMZN_ID }}
+          ENDPOINT: ${{ secrets.ENDPOINT }}
