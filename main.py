@@ -6,13 +6,19 @@ import os
 
 load_dotenv()
 
-test_api = "https://appbrewery.github.io/instant_pot/"
+headers = {
+    "Accept-Language": "en-GB,en-US;q=0.9,en;q=0.8",
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+    "X-Amzn-Trace-Id": os.getenv("AMZN_ID")
+}
 
-response = requests.get(url=test_api)
+endpoint = os.getenv("ENDPOINT")
+
+response = requests.get(url=endpoint, headers=headers)
 context = response.text
+safe_price = 1050
 
 soup = BeautifulSoup(context, "html.parser")
-
 whole_num_price = soup.find("span", class_="a-price-whole")
 decimal_price = soup.find("span", class_="a-price-fraction")
 whole_num_price = int(whole_num_price.getText().split(".")[0])
@@ -24,7 +30,7 @@ total_price = whole_num_price + decimal_price
 
 message = f"Subject:Low Price Alwer\n\nLow Price alert for {product_name}:{total_price}.Buy Now!"
 
-if total_price < 100:
+if total_price < safe_price:
     with smtplib.SMTP("smtp.gmail.com") as connection:
         connection.starttls()
         connection.login(user=os.getenv("MY_EMAIL"), password=os.getenv("MY_PASSWORD"))
