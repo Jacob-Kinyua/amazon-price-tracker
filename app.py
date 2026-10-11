@@ -156,7 +156,7 @@ def save_tracking_request(
     email, product_url, target_price, daily_monitoring, result
 ):
     with get_db_connection() as conn:
-        conn.execute(
+        row = conn.execute(
             """
             INSERT INTO public.tracked_products (
                 email,
@@ -169,9 +169,8 @@ def save_tracking_request(
                 alert_sent,
                 active
             )
-            VALUES (
-                %s, %s, %s, %s, %s, NOW(), %s, FALSE, %s
-            )
+            VALUES (%s, %s, %s, %s, %s, NOW(), %s, FALSE, %s)
+            RETURNING id
             """,
             (
                 email,
@@ -182,10 +181,107 @@ def save_tracking_request(
                 daily_monitoring,
                 daily_monitoring,
             ),
+        ).fetchone()
+
+    return row[0]
+
+
+def mark_alert_sent(product_id):
+    """Record that the one-time price alert was sent."""
+    with get_db_connection() as conn:
+        conn.execute(
+            """
+            UPDATE public.tracked_products
+            SET alert_sent = TRUE
+            WHERE id = %s
+            """,
+            (product_id,),
         )
 
 
-def send_initial_alert_if_needed(email, target_price, result):
+
+
+
+def get_products_to_monitor():
+    """Retrieve active products that have daily monitoring enabled."""
+    with get_db_connection() as conn:
+        products = conn.execute(
+            """
+            SELECT
+                id,
+                email,
+                product_url,
+                product_name,
+                target_price,
+                alert_sent
+            FROM public.tracked_products
+            WHERE active = TRUE
+              AND daily_monitoring = TRUE
+            ORDER BY id
+            """
+        ).fetchall()
+
+    return products
+
+
+def update_product_price(product_id, current_price):
+    """Update a product's latest price and check timestamp."""
+    with get_db_connection() as conn:
+        conn.execute(
+            """
+            UPDATE public.tracked_products
+            SET last_price = %s,
+                last_checked = NOW()
+            WHERE id = %s
+            """,
+            (current_price, product_id),
+        )
+
+
+
+def monitor_prices():
+    """Check prices and send one alert per tracking request."""
+    products = get_products_to_monitor()
+
+    print(f"Found {len(products)} products to monitor.")
+
+    for product in products:
+        product_id = product[0]
+        email = product[1]
+        product_url = product[2]
+        product_name = product[3]
+        target_price = product[4]
+        alert_sent = product[5]
+
+        try:
+            result = check_price(product_url)
+            current_price = result["current_price"]
+
+            update_product_price(product_id, current_price)
+
+            print(
+                f"Product {product_id}: "
+                f"${current_price:.2f} — price updated."
+            )
+
+            if current_price <= target_price and not alert_sent:
+                send_price_alert(
+                    email,
+                    product_name or result["product_name"],
+                    current_price,
+                    target_price,
+                    product_url,
+                )
+
+                mark_alert_sent(product_id)
+                print(f"Product {product_id}: price alert sent.")
+
+        except Exception as error:
+            print(f"Product {product_id}: monitoring failed — {error}")
+
+
+
+def send_initial_alert_if_needed(email, target_price, result, tracking_id):
     current_price = result["current_price"]
 
     if current_price <= target_price:
@@ -198,6 +294,7 @@ def send_initial_alert_if_needed(email, target_price, result):
         )
 
         result["alert_sent"] = True
+        mark_alert_sent(tracking_id)
         return True
 
     result["alert_sent"] = False
@@ -269,12 +366,12 @@ def index():
             result["alert_sent"] = False
 
             # Save the tracking request.
-            save_tracking_request(
-                email=email,
-                product_url=product_url,
-                target_price=target,
-                daily_monitoring=daily_monitoring,
-                result=result,
+            tracking_id = save_tracking_request(
+                email,
+                product_url,
+                target_price,
+                daily_monitoring,
+                result,
             )
 
             # Send an immediate alert if the target is already met.
