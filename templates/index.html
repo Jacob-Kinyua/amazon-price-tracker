@@ -1,0 +1,176 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PriceWatch | Amazon Price Tracker</title>
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="/" class="brand">
+            <span class="brand-icon">↓</span>
+            PriceWatch
+        </a>
+        <span class="nav-label">SMART PRICE TRACKING</span>
+    </nav>
+
+    <main class="container">
+        <header class="hero">
+            <p class="eyebrow">SHOP SMARTER</p>
+            <h1>Good deals are<br>worth <span>waiting for.</span></h1>
+            <p class="subtitle">
+                Track an Amazon product, set your target price, and
+                get an email when it's time to consider buying.
+            </p>
+        </header>
+
+        <section class="panel">
+            <div class="panel-heading">
+                <div class="icon-box">↓</div>
+                <div>
+                    <h2>Track a product</h2>
+                    <p>Enter the product link and your ideal price.</p>
+                </div>
+            </div>
+            <form action="/" method="POST" class="tracking-form" id="price-form">
+                <div class="form-group">
+                    <label for="email">Your email address</label>
+                    <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        placeholder="you@example.com"
+                        required
+                    >
+                    <small>Price alerts will be sent to this address.</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="product_url">Amazon product URL</label>
+                    <input
+                        type="url"
+                        id="product_url"
+                        name="product_url"
+                        placeholder="https://www.amazon.com/dp/..."
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="target_price">Target price (USD)</label>
+                    <input
+                        type="number"
+                        id="target_price"
+                        name="target_price"
+                        placeholder="105.00"
+                        min="0.01"
+                        step="0.01"
+                        required
+                    >
+                    <small>We'll notify you when the price reaches or falls below this amount.</small>
+                </div>
+
+                <div class="form-group monitoring-option">
+                    <label>
+                        <input
+                            type="checkbox"
+                            name="daily_monitoring"
+                            value="yes"
+                            checked
+                        >
+                        Check this product daily and email me when my target price is reached.
+                    </label>
+                </div>
+
+                <button type="submit" id="check-button">Start Tracking</button>
+            </form>
+
+            {% if error %}
+                <div class="message error" role="alert">
+                    <strong>Unable to complete the check</strong>
+                    <p>{{ error }}</p>
+                </div>
+            {% endif %}
+
+            {% if result %}
+                <div class="result-card" role="status">
+                    <p class="result-label">CURRENT PRICE</p>
+                    <h2>${{ "%.2f"|format(result.current_price) }}</h2>
+                    <p class="product-name">{{ result.product_name }}</p>
+
+                    <div class="result-row">
+                        <span>Your target</span>
+                        <strong>${{ "%.2f"|format(result.target_price) }}</strong>
+                    </div>
+
+                    {% if result.current_price < result.target_price %}
+                        <div class="status good">
+                            <strong>Price is below your target!</strong>
+                            <p>
+                                ${{ "%.2f"|format(result.difference) }}
+                                below your target price.
+                            </p>
+                        </div>
+
+                        {% if result.alert_sent %}
+                            <p class="email-status">
+                                ✓ Email alert sent successfully.
+                            </p>
+                        {% endif %}
+                    {% else %}
+                        <div class="status waiting">
+                            <strong>Keep waiting for a better deal</strong>
+                            <p>
+                                The price is
+                                ${{ "%.2f"|format(-result.difference) }}
+                                above your target.
+                            </p>
+                        </div>
+                    {% endif %}
+
+                    <a class="product-link"
+                       href="{{ result.product_url }}"
+                       target="_blank"
+                       rel="noopener noreferrer">
+                        View product on Amazon ↗
+                    </a>
+                </div>
+            {% endif %}
+        </section>
+
+        <section class="steps">
+            <div>
+                <span>01</span>
+                <h3>Choose a product</h3>
+                <p>Paste its Amazon URL.</p>
+            </div>
+            <div>
+                <span>02</span>
+                <h3>Set your budget</h3>
+                <p>Tell PriceWatch your target.</p>
+            </div>
+            <div>
+                <span>03</span>
+                <h3>Get notified</h3>
+                <p>Receive an email when the price drops below your target.</p>
+            </div>
+        </section>
+
+        <footer>
+            Built with Python, Flask, BeautifulSoup & SMTP.
+            <p>Prices and availability can change. Always verify the listing.</p>
+        </footer>
+    </main>
+
+    <script>
+        document.getElementById("price-form").addEventListener("submit", () => {
+            const button = document.getElementById("check-button");
+            button.disabled = true;
+            button.textContent = "Checking price...";
+        });
+    </script>
+</body>
+</html>
